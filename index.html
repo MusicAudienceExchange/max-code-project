@@ -1,0 +1,157 @@
+<html>
+<head>
+    <style>
+        fieldset{padding:1em;font:80%/1 sans-serif;margin-bottom:30px}fieldset input{margin-bottom:10px}label{float:left;width:60px;margin-right:.5em;padding-top:.2em;font-weight:700}div.logWrapper{display:none;margin-top:20px}div.logWrapper h1{font-size:115%}div.logWrapper div.log{margin-top:5px}div.logWrapper div.log p{font-family:monospace;margin:4px}ul.artists li{margin:4px 0}
+    </style>
+
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js"
+            integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
+            crossorigin="anonymous">
+    </script>
+    
+    <script type="text/javascript">
+        var TESTS = [
+            {
+                "name": "genre search",
+                "path": "/api/v1/music/genres?q=rock"
+            },
+            {
+                "name": "artist search",
+                "path": "/api/v1/music/artists?q=red"
+            },
+            {
+                "name": "artist detail",
+                "path": "/api/v1/music/artists/11175"
+            },
+            {
+                "name": "similar artists",
+                "path": "/api/v1/music/genres/21/artists"
+            }
+        ];
+
+        function logMessage(message) {
+            $('.logWrapper').show();
+            $('div.log').append("<p>"+message+"</p>");
+        };
+
+        function clearLogs() {
+            $('div.log').empty();
+        }
+
+        function getApiUrl(path) {
+            return new URL(path, $('input[name="endpoint"]').val()).href;
+        }
+
+        function runTest(testNumber, allTests) {
+            if (testNumber >= allTests.length) {
+                logMessage("All tests finished");
+                return;
+            }
+
+            test = allTests[testNumber];
+
+            logMessage("Testing "+test.name+" endpoint...");
+
+            url = getApiUrl(test.path);
+            $.getJSON(url, function(payload) {
+                logMessage("Got payload with "+payload.data.length+" items");
+                runTest(testNumber+1, allTests);
+            });
+        }
+
+        function runTests() {
+            clearLogs();
+            runTest(0, TESTS);
+        }
+
+        function setApiKey(key) {
+            // Save key for later
+            window.localStorage.setItem('APIKEY', key);
+
+            $.ajaxSetup({
+                headers: {
+                    'Authorization': 'apikey ' + key,
+                }
+            });
+        }
+
+        function loadApiKey() {
+            key = window.localStorage.getItem('APIKEY');
+            if (key) {
+                $('input[name="apikey"]').val(key).trigger('change');
+            }
+        }
+
+        function searchArtist(term) {
+            $ul = $('ul.artists');
+            $ul.empty();
+
+            url = getApiUrl("/api/v1/music/artists?q="+term);
+
+            $.getJSON(url, function(payload) {
+                for (i=0; i < payload.data.length; i++) {
+                    artist = payload.data[i];
+                    $ul.append("<li>"+unescape(artist.name)+"</li>");
+                }
+
+                if (payload.data.length == 0) {
+                    $ul.append("<li>No results</li>");
+                }
+            }).fail(function() {
+                $ul.append("<li><strong>Error</strong> (Did you set the API KEY?)</li>");
+            });
+        }
+
+        $(function() {
+            $('input[name="apikey"]').on('change', function() {
+                setApiKey(this.value);
+            });
+
+            $("#artist_name_search").on('click', function() {
+                searchArtist($("#artist_name").val());
+                return false;
+            });
+
+            $('#runtests').on('click', runTests);
+
+            loadApiKey();
+        });
+    </script>
+
+</head>
+<body>
+    <h1>MAX Music API Test Suite</h1>
+
+    <fieldset class="settings">
+        <legend>API Settings</legend>
+
+        <label for="apikey">API Key:</label>
+        <input type="text" name="apikey" placeholder="API KEY" size="35" />
+
+        <br />
+
+        <label for="endpoint">Endpoint:</label>
+        <input type="text" name="endpoint" value="https://music.musicaudience.info/" size="35" />
+    </fieldset>
+
+    <fieldset class="search">
+        <legend>Search</legend>
+
+        <input type="text" name="artist_name" placeholder="Artist Name" id="artist_name">
+        <input type="submit" name="artist_name_search" placeholder="Artist Name" id="artist_name_search">
+        
+        <ul class="artists"></ul>
+    </fieldset>
+
+    <fieldset class="debug">
+        <legend>Debug</legend>
+
+        <input type="button" name="start" id="runtests" value="Run Tests" />
+        
+        <div class="logWrapper">
+            <h1>Log Output</h1>
+            <div class="log"></div>
+        </div>
+    </fieldset>
+</body>
+</html>
